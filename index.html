@@ -3,27 +3,84 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Casa Rush Loader</title>
+<title>Casa Rush</title>
 <style>
-body{margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#0f172a;color:#fff;font-family:sans-serif}
-.box{text-align:center}
+html,body{margin:0;width:100%;height:100%;background:#0f172a;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial,sans-serif}
+#loader{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0f172a;color:#fff;z-index:2;text-align:center}
+#appFrame{width:100%;height:100dvh;border:0;display:block;background:#0f172a}
+.small{opacity:.7;font-size:13px}
 </style>
 </head>
 <body>
-<div class="box">
-<h2>🚀 Caricamento Casa Rush...</h2>
-<p id="info">Controllo versione...</p>
-</div>
+<div id="loader"><div><h2>🚀 Caricamento Casa Rush...</h2><p class="small" id="info">Controllo versione...</p></div></div>
+<iframe id="appFrame" title="Casa Rush"></iframe>
 <script>
-fetch('versions.json')
+const frame=document.getElementById('appFrame');
+const loader=document.getElementById('loader');
+const info=document.getElementById('info');
+
+function patchActivitySearch(){
+  try{
+    const w=frame.contentWindow;
+    const d=frame.contentDocument;
+    if(!w||!d||!w.data||!w.depAnalysis||!w.filterTasks||!w.card)return false;
+
+    w.refreshTaskResultsOnly=function(){
+      try{
+        const da=w.depAnalysis();
+        const all=w.data.tasks||[];
+        const filtered=w.filterTasks(all,da);
+        const infoEl=d.querySelector('#tasks .filterInfo .small');
+        const listEl=d.querySelector('#tasks .list');
+        if(infoEl) infoEl.textContent='Mostrate '+filtered.length+' di '+all.length+' attività';
+        if(listEl){
+          listEl.innerHTML=filtered.length
+            ? filtered.map(t=>w.card(t,da)).join('')
+            : '<div class="task"><div class="title">Nessuna attività trovata</div><div class="small">Prova a togliere qualche filtro.</div></div>';
+        }
+      }catch(e){console.warn('refreshTaskResultsOnly error',e)}
+    };
+
+    const originalSetTaskFilter=w.setTaskFilter;
+    w.setTaskFilter=function(k,v){
+      w.taskFilters[k]=v;
+      if(k==='q'){
+        w.refreshTaskResultsOnly();
+      }else{
+        originalSetTaskFilter ? originalSetTaskFilter(k,v) : w.renderTasks();
+      }
+    };
+
+    // versione di sicurezza: se il campo ricerca esiste già, preserva focus e caret durante la digitazione
+    const search=d.querySelector('#tasks input[placeholder^="🔎"]');
+    if(search){
+      search.addEventListener('input',function(ev){
+        w.taskFilters.q=ev.target.value;
+        w.refreshTaskResultsOnly();
+      },true);
+    }
+    return true;
+  }catch(e){console.warn('Patch Casa Rush non applicata',e);return false;}
+}
+
+fetch('versions.json?ts='+Date.now())
 .then(r=>r.json())
 .then(v=>{
- document.getElementById('info').textContent = 'Carico '+v.label;
- setTimeout(()=>{window.location.href = v.active},500);
+  info.textContent='Carico '+v.label;
+  frame.src=v.active+'?ts='+Date.now();
 })
 .catch(()=>{
- document.getElementById('info').textContent = 'Errore, carico fallback...';
- setTimeout(()=>{window.location.href = 'v1-7.html'},800);
+  info.textContent='Errore, carico fallback...';
+  frame.src='v1-7.html?ts='+Date.now();
+});
+
+frame.addEventListener('load',()=>{
+  loader.style.display='none';
+  let tries=0;
+  const timer=setInterval(()=>{
+    tries++;
+    if(patchActivitySearch()||tries>20) clearInterval(timer);
+  },250);
 });
 </script>
 </body>
