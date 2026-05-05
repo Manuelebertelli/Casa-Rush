@@ -168,15 +168,6 @@ async function exportTimelinePdf(){
     win.print();
   };
 }
-{
-  if(typeof show==='function')show('timeline');
-  await new Promise(r=>setTimeout(r,350));
-  buildPdfGantt();
-  document.body.offsetHeight;
-  await new Promise(r=>setTimeout(r,250));
-  window.print();
-  setTimeout(()=>{const el=document.getElementById('pdfGanttView'); if(el)el.remove();},1200);
-}
 <\/script>
 `;
     html = html.replace(/v1\.7\.3/g,'v1.7.5');
