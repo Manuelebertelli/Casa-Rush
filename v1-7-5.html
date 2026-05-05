@@ -13,104 +13,67 @@ fetch('v1-7-3.html?ts=' + Date.now())
     return r.text();
   })
   .then(html => {
-    const patch = `
-<script>
+    const oldFn = "async function exportTimelinePdf(){show('timeline');await waitRenderFrames();await new Promise(r=>setTimeout(r,120));window.print()}";
+
+    const newFn = `
 function exportTimelinePdf(){
-  const tasks = data.tasks || [];
-  const contacts = data.contacts || [];
+  const tasks = (data && data.tasks) ? [...data.tasks] : [];
+  const contacts = (data && data.contacts) ? data.contacts : [];
 
   function esc(v){
-    return String(v ?? '').replace(/[&<>"]/g, m => ({
-      '&':'&amp;',
-      '<':'&lt;',
-      '>':'&gt;',
-      '"':'&quot;'
-    }[m]));
+    return String(v ?? '').replace(/[&<>"]/g, function(m){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m];
+    });
   }
 
   function contactName(id){
-    return (contacts.find(c => c.id === id) || {}).name || '-';
+    const c = contacts.find(x => x.id === id);
+    return c ? c.name : '-';
   }
 
-  const rows = [...tasks]
-    .sort((a,b) => String(a.start || '').localeCompare(String(b.start || '')))
-    .map(t => \`
-      <tr>
-        <td>\${esc(t.title)}</td>
-        <td>\${esc(t.lane || '-')}</td>
-        <td>\${esc(contactName(t.contact))}</td>
-        <td>\${esc(t.start || '-')}</td>
-        <td>\${esc(t.end || '-')}</td>
-        <td>\${esc(t.status || '-')}</td>
-        <td>\${t.critical ? 'Sì' : 'No'}</td>
-        <td>\${esc((t.blocks || []).join(', ') || '-')}</td>
-        <td>\${esc(t.notes || '')}</td>
-      </tr>
-    \`).join('');
+  tasks.sort((a,b) => String(a.start || '').localeCompare(String(b.start || '')));
 
-  const printHtml = \`
-    <!doctype html>
-    <html lang="it">
-    <head>
-      <meta charset="utf-8">
-      <title>Casa Rush PDF</title>
-      <style>
-        @page { size: A4 landscape; margin: 10mm; }
-        body {
-          font-family: Arial, sans-serif;
-          padding: 20px;
-          background: white;
-          color: black;
-        }
-        h1 { margin: 0 0 6px; font-size: 24px; }
-        p { margin: 4px 0 12px; font-size: 13px; }
-        table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 11px;
-        }
-        th, td {
-          border: 1px solid #bbb;
-          padding: 6px;
-          text-align: left;
-          vertical-align: top;
-        }
-        th {
-          background: #f0f0f0;
-          font-weight: bold;
-        }
-        tr {
-          break-inside: avoid;
-          page-break-inside: avoid;
-        }
-      </style>
-    </head>
-    <body>
-      <h1>Casa Rush – Timeline lavori</h1>
-      <p><strong>Esportato il:</strong> \${new Date().toLocaleDateString('it-IT')}</p>
-      <p><strong>Obiettivo rogito:</strong> 30/05/2026</p>
+  const rows = tasks.map(t =>
+    '<tr>' +
+      '<td>' + esc(t.title) + '</td>' +
+      '<td>' + esc(t.lane || '-') + '</td>' +
+      '<td>' + esc(contactName(t.contact)) + '</td>' +
+      '<td>' + esc(t.start || '-') + '</td>' +
+      '<td>' + esc(t.end || '-') + '</td>' +
+      '<td>' + esc(t.status || '-') + '</td>' +
+      '<td>' + (t.critical ? 'Sì' : 'No') + '</td>' +
+      '<td>' + esc((t.blocks || []).join(', ') || '-') + '</td>' +
+      '<td>' + esc(t.notes || '') + '</td>' +
+    '</tr>'
+  ).join('');
 
-      <table>
-        <thead>
-          <tr>
-            <th>Attività</th>
-            <th>Canale</th>
-            <th>Contatto</th>
-            <th>Inizio</th>
-            <th>Fine</th>
-            <th>Stato</th>
-            <th>Critica</th>
-            <th>Attività bloccate</th>
-            <th>Note</th>
-          </tr>
-        </thead>
-        <tbody>\${rows}</tbody>
-      </table>
-    </body>
-    </html>
-  \`;
+  const printHtml =
+    '<!doctype html><html lang="it"><head><meta charset="utf-8">' +
+    '<title>Casa Rush PDF</title>' +
+    '<style>' +
+    '@page{size:A4 landscape;margin:10mm}' +
+    'body{font-family:Arial,sans-serif;padding:20px;background:white;color:black}' +
+    'h1{margin:0 0 6px;font-size:24px}' +
+    'p{margin:4px 0 12px;font-size:13px}' +
+    'table{width:100%;border-collapse:collapse;font-size:11px}' +
+    'th,td{border:1px solid #bbb;padding:6px;text-align:left;vertical-align:top}' +
+    'th{background:#f0f0f0;font-weight:bold}' +
+    'tr{break-inside:avoid;page-break-inside:avoid}' +
+    '</style></head><body>' +
+    '<h1>Casa Rush – Timeline lavori</h1>' +
+    '<p><strong>Esportato il:</strong> ' + new Date().toLocaleDateString('it-IT') + '</p>' +
+    '<p><strong>Obiettivo rogito:</strong> 30/05/2026</p>' +
+    '<table><thead><tr>' +
+    '<th>Attività</th><th>Canale</th><th>Contatto</th><th>Inizio</th><th>Fine</th><th>Stato</th><th>Critica</th><th>Attività bloccate</th><th>Note</th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table>' +
+    '</body></html>';
 
   const win = window.open('', '_blank');
+  if(!win){
+    alert('Popup bloccato. Consenti i popup per esportare il PDF.');
+    return;
+  }
+
   win.document.open();
   win.document.write(printHtml);
   win.document.close();
@@ -120,11 +83,11 @@ function exportTimelinePdf(){
     win.print();
   }, 500);
 }
-<\/script>
 `;
 
-    html = html.replace(/v1\\.7\\.3/g, 'v1.7.5');
-    html = html.replace('</body>', patch + '</body>');
+    html = html.replace(/v1\.7\.3/g, 'v1.7.5');
+    html = html.replace(oldFn, newFn);
+
     document.open();
     document.write(html);
     document.close();
