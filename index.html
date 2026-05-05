@@ -23,129 +23,72 @@ function patchCasaRush(){
   try{
     const w=frame.contentWindow;
     if(!w) return false;
-
     w.eval(`
       (function(){
-        if(window.__casaRushLauncherPatchApplied) return true;
-        window.__casaRushLauncherPatchApplied = true;
-
-        const style=document.createElement('style');
-        style.textContent = '.weekCell{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:7px 6px;text-align:center;font-size:11px;color:var(--gold);background:#d7b56d12;font-weight:950}.tcell.weekend{background:#ff5c7a16;color:#ffb4c1}.tcell.today{outline:2px solid var(--gold);outline-offset:-2px}.tcell .dow{display:block;font-weight:950;color:var(--txt);font-size:11px;text-transform:capitalize}.tcell .daynum{display:block;font-size:13px;font-weight:950;color:var(--gold);line-height:1.1}.tcell .month{display:block;font-size:9px;text-transform:uppercase;color:var(--mut)}';
-        document.head.appendChild(style);
-
-        const oldSetTaskFilter = setTaskFilter;
-        setTaskFilter = function(k,v){
-          taskFilters[k]=v;
-          if(k==='q'){
-            const da = depAnalysis();
-            const all = data.tasks||[];
-            const filtered = filterTasks(all,da);
-            const info = document.querySelector('#tasks .filterInfo .small');
-            const list = document.querySelector('#tasks .list');
-            if(info) info.textContent='Mostrate '+filtered.length+' di '+all.length+' attività';
-            if(list){
-              list.innerHTML = filtered.length
-                ? filtered.map(t=>card(t,da)).join('')
-                : '<div class="task"><div class="title">Nessuna attività trovata</div><div class="small">Prova a togliere qualche filtro.</div></div>';
-            }
-          }else{
-            oldSetTaskFilter(k,v);
-          }
-        };
-
-        function isoWeek(d){
-          const date=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
-          const dayNum=date.getUTCDay()||7;
-          date.setUTCDate(date.getUTCDate()+4-dayNum);
-          const yearStart=new Date(Date.UTC(date.getUTCFullYear(),0,1));
-          return Math.ceil((((date-yearStart)/86400000)+1)/7);
+        function addTimelineStyles(){
+          if(document.getElementById('timelineCalendarPatchStyle')) return;
+          const style=document.createElement('style');
+          style.id='timelineCalendarPatchStyle';
+          style.textContent='.weekCell{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:7px 6px;text-align:center;font-size:11px;color:var(--gold);background:#d7b56d12;font-weight:950}.tcell.weekend{background:#ff5c7a16;color:#ffb4c1}.tcell.today{outline:2px solid var(--gold);outline-offset:-2px}.tcell .dow{display:block;font-weight:950;color:var(--txt);font-size:11px;text-transform:capitalize}.tcell .daynum{display:block;font-size:13px;font-weight:950;color:var(--gold);line-height:1.1}.tcell .month{display:block;font-size:9px;text-transform:uppercase;color:var(--mut)}';
+          document.head.appendChild(style);
         }
-        function sameMonthLabel(d){ return d.toLocaleDateString('it-IT',{month:'short'}).replace('.',''); }
-        function weekLabel(startDate,endDate){
-          const s=startDate.getDate();
-          const e=endDate.getDate();
-          const sm=sameMonthLabel(startDate);
-          const em=sameMonthLabel(endDate);
-          const w=isoWeek(startDate);
-          return 'Settimana '+w+' · '+s+' '+sm+' – '+e+' '+em;
+        addTimelineStyles();
+
+        if(!window.__searchFixApplied){
+          window.__searchFixApplied=true;
+          const oldSetTaskFilter=setTaskFilter;
+          setTaskFilter=function(k,v){
+            taskFilters[k]=v;
+            if(k==='q'){
+              const da=depAnalysis(); const all=data.tasks||[]; const filtered=filterTasks(all,da);
+              const info=document.querySelector('#tasks .filterInfo .small'); const list=document.querySelector('#tasks .list');
+              if(info) info.textContent='Mostrate '+filtered.length+' di '+all.length+' attività';
+              if(list) list.innerHTML=filtered.length ? filtered.map(t=>card(t,da)).join('') : '<div class="task"><div class="title">Nessuna attività trovata</div><div class="small">Prova a togliere qualche filtro.</div></div>';
+            }else oldSetTaskFilter(k,v);
+          };
         }
 
-        renderTimeline = function(){
-          let lanes=[...new Set(data.tasks.map(t=>t.lane))];
-          let days=Math.max(45, dd(START,TARGET)+22);
-          let rogitoIndex=dd(START,TARGET);
-          let gridCols='var(--lane) repeat('+days+',var(--day))';
-          let dates=[];
-          for(let i=0;i<days;i++){
-            let d=new Date(START+'T12:00');
-            d.setDate(d.getDate()+i);
-            dates.push(d);
-          }
+        function isoWeek(d){const date=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const dayNum=date.getUTCDay()||7;date.setUTCDate(date.getUTCDate()+4-dayNum);const yearStart=new Date(Date.UTC(date.getUTCFullYear(),0,1));return Math.ceil((((date-yearStart)/86400000)+1)/7)}
+        function m(d){return d.toLocaleDateString('it-IT',{month:'short'}).replace('.','')}
+        function weekLabel(s,e){return 'Settimana '+isoWeek(s)+' · '+s.getDate()+' '+m(s)+' – '+e.getDate()+' '+m(e)}
+        function calendarTimeline(){
+          if(!document.querySelector('#timeline')) return;
+          addTimelineStyles();
+          const lanes=[...new Set(data.tasks.map(t=>t.lane))];
+          const days=Math.max(45,dd(START,TARGET)+22);
+          const gridCols='var(--lane) repeat('+days+',var(--day))';
+          const dates=[];
+          for(let i=0;i<days;i++){let d=new Date(START+'T12:00');d.setDate(d.getDate()+i);dates.push(d)}
           let weekRow='<div class="weekCell" style="position:sticky;left:0;z-index:7;background:var(--card)">Settimane</div>';
-          let i=0;
-          while(i<days){
-            let start=dates[i];
-            let startDow=(start.getDay()+6)%7;
-            let span=Math.min(7-startDow,days-i);
-            let end=dates[i+span-1];
-            weekRow+='<div class="weekCell" style="grid-column:'+(i+2)+' / span '+span+'">'+weekLabel(start,end)+'</div>';
-            i+=span;
-          }
+          let i=0; while(i<days){let s=dates[i];let startDow=(s.getDay()+6)%7;let span=Math.min(7-startDow,days-i);let e=dates[i+span-1];weekRow+='<div class="weekCell" style="grid-column:'+(i+2)+' / span '+span+'">'+weekLabel(s,e)+'</div>';i+=span}
           let head='<div class="tcell" style="position:sticky;left:0;z-index:6;background:var(--card2)">Giorni</div>';
-          for(let j=0;j<days;j++){
-            let d=dates[j];
-            let iso=d.toISOString().slice(0,10);
-            let dow=d.toLocaleDateString('it-IT',{weekday:'short'}).replace('.','');
-            let month=d.toLocaleDateString('it-IT',{month:'short'}).replace('.','');
-            let weekend=[0,6].includes(d.getDay());
-            let todayIso=new Date().toISOString().slice(0,10);
-            head+='<div class="tcell '+(iso===TARGET?'rogito ':'')+(weekend?'weekend ':'')+(iso===todayIso?'today ':'')+'" style="grid-column:'+(j+2)+'"><span class="dow">'+dow+'</span><span class="daynum">'+d.getDate()+'</span><span class="month">'+month+'</span></div>';
-          }
+          for(let j=0;j<days;j++){let d=dates[j];let iso=d.toISOString().slice(0,10);let dow=d.toLocaleDateString('it-IT',{weekday:'short'}).replace('.','');let month=m(d);let weekend=[0,6].includes(d.getDay());let todayIso=new Date().toISOString().slice(0,10);head+='<div class="tcell '+(iso===TARGET?'rogito ':'')+(weekend?'weekend ':'')+(iso===todayIso?'today ':'')+'" style="grid-column:'+(j+2)+'"><span class="dow">'+dow+'</span><span class="daynum">'+d.getDate()+'</span><span class="month">'+month+'</span></div>'}
           let html='<div class="card"><h2>Timeline</h2><p class="small">Vista calendario: settimane, giorno della settimana, giorno e mese. Weekend evidenziati.</p><div class="timelineWrap"><div class="timeline"><div class="trow" style="grid-template-columns:'+gridCols+'">'+weekRow+'</div><div class="trow" style="grid-template-columns:'+gridCols+'">'+head+'</div>';
-          lanes.forEach(l=>{
-            html+='<div class="trow" style="grid-template-columns:'+gridCols+'"><div class="laneName">'+esc(l)+'</div>';
-            for(let k=0;k<days;k++) html+='<div class="track" style="grid-column:'+(k+2)+';grid-row:1"></div>';
-            data.tasks.filter(t=>t.lane===l).forEach(t=>{
-              let s=Math.max(0,Math.min(days-1,dd(START,t.start)));
-              let e=Math.max(s,Math.min(days-1,dd(START,t.end)));
-              let span=e-s+1;
-              let lvl=smartLevel(t,depAnalysis());
-              let col=t.id==='rogito'?'gold':lvl==='critical'?'r':lvl==='warning'?'o':['fatto','confermato'].includes(t.status)?'g':'y';
-              html+='<div class="clip '+col+'" style="grid-column:'+(s+2)+' / span '+span+'" onclick="editTask(\''+t.id+'\')">'+esc(t.title)+' · '+fmt(t.end)+'</div>';
-            });
-            html+='</div>';
-          });
-          $('timeline').innerHTML=html+'</div></div></div>';
-        };
-        if(document.querySelector('#timeline') && !document.querySelector('#timeline').classList.contains('hide')) renderTimeline();
+          lanes.forEach(l=>{html+='<div class="trow" style="grid-template-columns:'+gridCols+'"><div class="laneName">'+esc(l)+'</div>';for(let k=0;k<days;k++) html+='<div class="track" style="grid-column:'+(k+2)+';grid-row:1"></div>';data.tasks.filter(t=>t.lane===l).forEach(t=>{let s=Math.max(0,Math.min(days-1,dd(START,t.start)));let e=Math.max(s,Math.min(days-1,dd(START,t.end)));let span=e-s+1;let lvl=smartLevel(t,depAnalysis());let col=t.id==='rogito'?'gold':lvl==='critical'?'r':lvl==='warning'?'o':['fatto','confermato'].includes(t.status)?'g':'y';html+='<div class="clip '+col+'" style="grid-column:'+(s+2)+' / span '+span+'" onclick="editTask(\''+t.id+'\')">'+esc(t.title)+' · '+fmt(t.end)+'</div>'});html+='</div>'});
+          document.querySelector('#timeline').innerHTML=html+'</div></div></div>';
+        }
+        window.calendarTimeline=calendarTimeline;
+        renderTimeline=calendarTimeline;
+        const oldShow=show;
+        show=function(v){oldShow(v); if(v==='timeline') setTimeout(calendarTimeline,20)};
+        document.querySelectorAll('nav button[data-v="timeline"]').forEach(b=>b.addEventListener('click',()=>setTimeout(calendarTimeline,80)));
+        if(!document.querySelector('#timeline').classList.contains('hide')) calendarTimeline();
         return true;
       })();
     `);
     return true;
-  }catch(e){
-    console.warn('Patch Casa Rush non applicata', e);
-    return false;
-  }
+  }catch(e){console.warn('Patch Casa Rush non applicata',e);return false;}
 }
 
 fetch('versions.json?ts='+Date.now())
 .then(r=>r.json())
-.then(v=>{
-  info.textContent='Carico '+v.label;
-  frame.src=v.active+'?ts='+Date.now();
-})
-.catch(()=>{
-  info.textContent='Errore, carico fallback...';
-  frame.src='v1-7.html?ts='+Date.now();
-});
+.then(v=>{info.textContent='Carico '+v.label;frame.src=v.active+'?ts='+Date.now();})
+.catch(()=>{info.textContent='Errore, carico fallback...';frame.src='v1-7.html?ts='+Date.now();});
 
 frame.addEventListener('load',()=>{
   loader.style.display='none';
   let tries=0;
-  const t=setInterval(()=>{
-    tries++;
-    if(patchCasaRush()||tries>30) clearInterval(t);
-  },300);
+  const t=setInterval(()=>{tries++; if(patchCasaRush()||tries>30) clearInterval(t);},300);
 });
 </script>
 </body>
