@@ -14,128 +14,81 @@ fetch('v1-7-3.html?ts=' + Date.now())
   })
   .then(html => {
     const patch = `
-<style>
-#pdfGanttView{display:none}
-@media print{
-  @page{size:A4 landscape;margin:8mm}
-  html,body{background:#fff!important;color:#111!important;padding:0!important;margin:0!important;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial,sans-serif!important}
-  body>*:not(#pdfGanttView){display:none!important}
-  #pdfGanttView{display:block!important;color:#111!important;background:#fff!important;font-size:10px;line-height:1.25}
-  #pdfGanttView *{box-shadow:none!important;text-shadow:none!important;box-sizing:border-box}
-  .pdf-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:6px;margin-bottom:8px}
-  .pdf-head h1{font-size:20px;margin:0 0 4px;color:#111!important}
-  .pdf-meta{font-size:9px;color:#333!important;text-align:right}
-  .pdf-legend{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 8px;font-size:9px}
-  .pdf-pill{border:1px solid #999;border-radius:999px;padding:3px 7px;background:#f6f6f6;color:#111!important}
-  .pdf-table{width:100%;border-collapse:collapse;table-layout:fixed}
-  .pdf-table th{background:#efefef!important;color:#111!important;border:1px solid #999;padding:5px 4px;text-align:left;font-size:8px;text-transform:uppercase;letter-spacing:.02em}
-  .pdf-table td{border:1px solid #bbb;padding:4px;vertical-align:top;color:#111!important;break-inside:avoid;page-break-inside:avoid}
-  .pdf-table tr{break-inside:avoid;page-break-inside:avoid}
-  .pdf-title{font-weight:800;font-size:10px}.pdf-small{font-size:8px;color:#333!important}
-  .pdf-gantt{height:13px;background:#eee;border:1px solid #ccc;border-radius:999px;position:relative;overflow:hidden;margin-top:4px}
-  .pdf-bar{height:100%;border-radius:999px;background:#c7a24b}.pdf-bar.critical{background:#cc3355!important}.pdf-bar.warning{background:#d97818!important}.pdf-bar.done{background:#25895d!important}
-  .pdf-status{font-weight:800;border-radius:999px;padding:2px 5px;display:inline-block;background:#eee;border:1px solid #aaa;font-size:8px}.pdf-status.critical{background:#ffe6ec!important;border-color:#cc3355;color:#8a1230!important}.pdf-status.warning{background:#fff0db!important;border-color:#d97818;color:#874000!important}.pdf-status.done{background:#e2f7ed!important;border-color:#25895d;color:#0f5b39!important}
-  .pdf-note{max-height:42px;overflow:hidden}.pdf-col-task{width:19%}.pdf-col-small{width:8%}.pdf-col-date{width:7%}.pdf-col-state{width:9%}.pdf-col-gantt{width:20%}.pdf-col-blocks{width:13%}.pdf-col-note{width:16%}
-}
-</style>
 <script>
-function pdfEscape(v){return String(v??'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}
-function pdfDate(v){try{return v?new Date(v+'T12:00').toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'2-digit'}):'—'}catch(e){return '—'}}
-function pdfStatusLabel(s){const hit=(window.statusOptions||[]).find(x=>x[0]===s);return hit?hit[1]:(s||'Da definire')}
-function pdfStatusClass(t){if(['fatto','confermato','post'].includes(t.status))return 'done';if(['bloccante','bloccato'].includes(t.status)||t.critical)return 'critical';if(t.status==='rischio')return 'warning';return ''}
-function buildPdfGantt(){
-  const old=document.getElementById('pdfGanttView'); if(old)old.remove();
-  const tasks=[...(window.data?.tasks||[])].sort((a,b)=>String(a.start||'').localeCompare(String(b.start||''))||String(a.end||'').localeCompare(String(b.end||'')));
-  const start=window.START||'2026-05-03';
-  const maxEnd=tasks.reduce((m,t)=>t.end&&t.end>m?t.end:m, window.TARGET||'2026-05-30');
-  const total=Math.max(1, typeof dd==='function'?dd(start,maxEnd):30);
-  const contacts=window.data?.contacts||[];
-  function contactName(id){return (contacts.find(x=>x.id===id)||{}).name||'—'}
-  const rows=tasks.map(t=>{
-    const s=Math.max(0, typeof dd==='function'?dd(start,t.start||start):0);
-    const e=Math.max(s, typeof dd==='function'?dd(start,t.end||t.start||start):s);
-    const left=Math.min(98, Math.max(0, s/total*100));
-    const width=Math.max(3, Math.min(100-left, (e-s+1)/total*100));
-    const cls=pdfStatusClass(t);
-    const blocks=(t.blocks||[]).join(', ');
-    return '<tr>'+
-      '<td><div class="pdf-title">'+pdfEscape(t.title)+'</div><div class="pdf-small">'+pdfEscape(t.id||'')+'</div></td>'+
-      '<td>'+pdfEscape(t.lane||'—')+'</td>'+
-      '<td>'+pdfEscape(contactName(t.contact))+'</td>'+
-      '<td>'+pdfDate(t.start)+'</td>'+
-      '<td>'+pdfDate(t.end)+'</td>'+
-      '<td><span class="pdf-status '+cls+'">'+pdfEscape(pdfStatusLabel(t.status))+'</span></td>'+
-      '<td>'+(t.critical?'Sì':'No')+'</td>'+
-      '<td><div class="pdf-gantt"><div class="pdf-bar '+cls+'" style="margin-left:'+left+'%;width:'+width+'%"></div></div><div class="pdf-small">'+pdfDate(start)+' → '+pdfDate(maxEnd)+'</div></td>'+
-      '<td>'+pdfEscape(blocks||'—')+'</td>'+
-      '<td><div class="pdf-note">'+pdfEscape(t.notes||'')+'</div></td>'+
-    '</tr>';
-  }).join('');
-  const el=document.createElement('section');
-  el.id='pdfGanttView';
-  el.innerHTML='<div class="pdf-head"><div><h1>Casa Rush – Timeline lavori</h1><div class="pdf-small">Obiettivo rogito: 30/05/2026 · Versione PDF Gantt pulito</div></div><div class="pdf-meta">Esportato il '+new Date().toLocaleDateString('it-IT')+'<br>'+new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})+'</div></div>'+
-    '<div class="pdf-legend"><span class="pdf-pill">Rosso = critica/bloccante</span><span class="pdf-pill">Arancio = rischio</span><span class="pdf-pill">Verde = fatto/confermato</span><span class="pdf-pill">Barra = durata nel periodo</span></div>'+
-    '<table class="pdf-table"><thead><tr><th class="pdf-col-task">Attività</th><th class="pdf-col-small">Canale</th><th class="pdf-col-small">Contatto</th><th class="pdf-col-date">Inizio</th><th class="pdf-col-date">Fine</th><th class="pdf-col-state">Stato</th><th class="pdf-col-date">Critica</th><th class="pdf-col-gantt">Gantt</th><th class="pdf-col-blocks">Attività bloccate</th><th class="pdf-col-note">Note</th></tr></thead><tbody>'+rows+'</tbody></table>';
-  document.body.appendChild(el);
-  return el;
-}
-async function exportTimelinePdf(){
-
+function exportTimelinePdf(){
   const tasks = data.tasks || [];
   const contacts = data.contacts || [];
 
-  function contactName(id){
-    return (contacts.find(c=>c.id===id)||{}).name || '-';
+  function esc(v){
+    return String(v ?? '').replace(/[&<>"]/g, m => ({
+      '&':'&amp;',
+      '<':'&lt;',
+      '>':'&gt;',
+      '"':'&quot;'
+    }[m]));
   }
 
-  const rows = tasks
-    .sort((a,b)=>a.start.localeCompare(b.start))
-    .map(t=>`
-      <tr>
-        <td>${t.title}</td>
-        <td>${t.lane || '-'}</td>
-        <td>${contactName(t.contact)}</td>
-        <td>${t.start || '-'}</td>
-        <td>${t.end || '-'}</td>
-        <td>${t.status || '-'}</td>
-        <td>${t.critical ? 'SI' : 'NO'}</td>
-        <td>${(t.blocks||[]).join(', ')}</td>
-        <td>${t.notes || ''}</td>
-      </tr>
-    `).join('');
+  function contactName(id){
+    return (contacts.find(c => c.id === id) || {}).name || '-';
+  }
 
-  const html = `
-    <html>
+  const rows = [...tasks]
+    .sort((a,b) => String(a.start || '').localeCompare(String(b.start || '')))
+    .map(t => \`
+      <tr>
+        <td>\${esc(t.title)}</td>
+        <td>\${esc(t.lane || '-')}</td>
+        <td>\${esc(contactName(t.contact))}</td>
+        <td>\${esc(t.start || '-')}</td>
+        <td>\${esc(t.end || '-')}</td>
+        <td>\${esc(t.status || '-')}</td>
+        <td>\${t.critical ? 'Sì' : 'No'}</td>
+        <td>\${esc((t.blocks || []).join(', ') || '-')}</td>
+        <td>\${esc(t.notes || '')}</td>
+      </tr>
+    \`).join('');
+
+  const printHtml = \`
+    <!doctype html>
+    <html lang="it">
     <head>
+      <meta charset="utf-8">
       <title>Casa Rush PDF</title>
       <style>
-        body{
-          font-family:Arial;
-          padding:20px;
-          background:white;
-          color:black;
+        @page { size: A4 landscape; margin: 10mm; }
+        body {
+          font-family: Arial, sans-serif;
+          padding: 20px;
+          background: white;
+          color: black;
         }
-        h1{margin-bottom:5px}
-        table{
-          width:100%;
-          border-collapse:collapse;
-          font-size:12px;
+        h1 { margin: 0 0 6px; font-size: 24px; }
+        p { margin: 4px 0 12px; font-size: 13px; }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 11px;
         }
-        th, td{
-          border:1px solid #ccc;
-          padding:6px;
-          text-align:left;
+        th, td {
+          border: 1px solid #bbb;
+          padding: 6px;
+          text-align: left;
+          vertical-align: top;
         }
-        th{
-          background:#f0f0f0;
+        th {
+          background: #f0f0f0;
+          font-weight: bold;
+        }
+        tr {
+          break-inside: avoid;
+          page-break-inside: avoid;
         }
       </style>
     </head>
     <body>
-
       <h1>Casa Rush – Timeline lavori</h1>
-      <p>Esportato il ${new Date().toLocaleDateString()}</p>
-      <p>Obiettivo rogito: 30/05/2026</p>
+      <p><strong>Esportato il:</strong> \${new Date().toLocaleDateString('it-IT')}</p>
+      <p><strong>Obiettivo rogito:</strong> 30/05/2026</p>
 
       <table>
         <thead>
@@ -147,37 +100,39 @@ async function exportTimelinePdf(){
             <th>Fine</th>
             <th>Stato</th>
             <th>Critica</th>
-            <th>Blocca</th>
+            <th>Attività bloccate</th>
             <th>Note</th>
           </tr>
         </thead>
-        <tbody>
-          ${rows}
-        </tbody>
+        <tbody>\${rows}</tbody>
       </table>
-
     </body>
     </html>
-  `;
+  \`;
 
   const win = window.open('', '_blank');
-  win.document.write(html);
+  win.document.open();
+  win.document.write(printHtml);
   win.document.close();
 
-  win.onload = () => {
+  setTimeout(() => {
+    win.focus();
     win.print();
-  };
+  }, 500);
 }
 <\/script>
 `;
-    html = html.replace(/v1\.7\.3/g,'v1.7.5');
+
+    html = html.replace(/v1\\.7\\.3/g, 'v1.7.5');
     html = html.replace('</body>', patch + '</body>');
     document.open();
     document.write(html);
     document.close();
   })
   .catch(err => {
-    document.body.innerHTML = '<h1 style="font-family:sans-serif">Errore v1.7.5</h1><p style="font-family:sans-serif">' + err.message + '</p>';
+    document.body.innerHTML =
+      '<h1 style="font-family:sans-serif">Errore v1.7.5</h1>' +
+      '<p style="font-family:sans-serif">' + err.message + '</p>';
   });
 </script>
 </body>
