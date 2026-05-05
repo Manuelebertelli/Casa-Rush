@@ -22,40 +22,37 @@ const info=document.getElementById('info');
 function patchActivitySearch(){
   try{
     const w=frame.contentWindow;
-    const d=frame.contentDocument;
-    if(!w||!d||!d.querySelector('#tasks')) return false;
+    if(!w) return false;
 
     w.eval(`
       (function(){
-        if(window.__casaRushSearchFixed) return true;
-        window.__casaRushSearchFixed = true;
+        if(window.__searchFixApplied) return;
+        window.__searchFixApplied = true;
 
-        window.updateFilteredListOnly = function(){
-          const da = depAnalysis();
-          const all = data.tasks || [];
-          const filtered = filterTasks(all, da);
-          const info = document.querySelector('#tasks .filterInfo .small');
-          const list = document.querySelector('#tasks .list');
-          if(info) info.textContent = 'Mostrate ' + filtered.length + ' di ' + all.length + ' attività';
-          if(list){
-            list.innerHTML = filtered.length
-              ? filtered.map(t => card(t, da)).join('')
-              : '<div class="task"><div class="title">Nessuna attività trovata</div><div class="small">Prova a togliere qualche filtro.</div></div>';
+        const old = setTaskFilter;
+        setTaskFilter = function(k,v){
+          taskFilters[k]=v;
+          if(k==='q'){
+            const da = depAnalysis();
+            const all = data.tasks||[];
+            const filtered = filterTasks(all,da);
+            const info = document.querySelector('#tasks .filterInfo .small');
+            const list = document.querySelector('#tasks .list');
+            if(info) info.textContent='Mostrate '+filtered.length+' di '+all.length+' attività';
+            if(list){
+              list.innerHTML = filtered.length
+                ? filtered.map(t=>card(t,da)).join('')
+                : '<div class="task"><div class="title">Nessuna attività trovata</div><div class="small">Prova a togliere qualche filtro.</div></div>';
+            }
+          }else{
+            old(k,v);
           }
         };
-
-        const oldSetTaskFilter = setTaskFilter;
-        window.setTaskFilter = setTaskFilter = function(k,v){
-          taskFilters[k] = v;
-          if(k === 'q') updateFilteredListOnly();
-          else oldSetTaskFilter(k,v);
-        };
-        true;
       })();
     `);
+
     return true;
   }catch(e){
-    console.warn('Patch Casa Rush non applicata', e);
     return false;
   }
 }
@@ -67,17 +64,16 @@ fetch('versions.json?ts='+Date.now())
   frame.src=v.active+'?ts='+Date.now();
 })
 .catch(()=>{
-  info.textContent='Errore, carico fallback...';
   frame.src='v1-7.html?ts='+Date.now();
 });
 
 frame.addEventListener('load',()=>{
   loader.style.display='none';
   let tries=0;
-  const timer=setInterval(()=>{
+  const t=setInterval(()=>{
     tries++;
-    if(patchActivitySearch()||tries>30) clearInterval(timer);
-  },250);
+    if(patchActivitySearch()||tries>30) clearInterval(t);
+  },300);
 });
 </script>
 </body>
