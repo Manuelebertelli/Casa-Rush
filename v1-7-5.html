@@ -30,7 +30,17 @@ function exportTimelinePdf(){
     const c = contacts.find(x => x.id === id);
     return c ? c.name : '-';
   }
+  function statusClass(t){
+  if(['fatto','confermato','post'].includes(t.status)) return 'done';
+  if(['bloccante','bloccato'].includes(t.status) || t.critical) return 'blocked';
+  return 'progress';
+}
 
+function statusLabel(t){
+  if(['fatto','confermato','post'].includes(t.status)) return 'Fatto';
+  if(['bloccante','bloccato'].includes(t.status) || t.critical) return 'Bloccante';
+  return 'In corso';
+}
   tasks.sort((a,b) => String(a.start || '').localeCompare(String(b.start || '')));
 
   const rows = tasks.map(t =>
@@ -40,7 +50,7 @@ function exportTimelinePdf(){
       '<td>' + esc(contactName(t.contact)) + '</td>' +
       '<td>' + esc(t.start || '-') + '</td>' +
       '<td>' + esc(t.end || '-') + '</td>' +
-      '<td>' + esc(t.status || '-') + '</td>' +
+      '<td class="' + statusClass(t) + '">' + esc(statusLabel(t)) + '</td>' +
       '<td>' + (t.critical ? 'Sì' : 'No') + '</td>' +
       '<td>' + esc((t.blocks || []).join(', ') || '-') + '</td>' +
       '<td>' + esc(t.notes || '') + '</td>' +
@@ -57,6 +67,9 @@ function exportTimelinePdf(){
     'p{margin:4px 0 12px;font-size:13px}' +
     'table{width:100%;border-collapse:collapse;font-size:11px}' +
     'th,td{border:1px solid #bbb;padding:6px;text-align:left;vertical-align:top}' +
+    'td.done{background:#dff7e8;color:#116b3a;font-weight:bold}' +
+    'td.blocked{background:#ffe1e7;color:#9b1230;font-weight:bold}' +
+    'td.progress{background:#fff0d8;color:#935100;font-weight:bold}' +
     'th{background:#f0f0f0;font-weight:bold}' +
     'tr{break-inside:avoid;page-break-inside:avoid}' +
     '</style></head><body>' +
