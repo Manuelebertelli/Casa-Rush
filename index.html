@@ -23,44 +23,41 @@ function patchActivitySearch(){
   try{
     const w=frame.contentWindow;
     const d=frame.contentDocument;
-    if(!w||!d||!w.data||!w.depAnalysis||!w.filterTasks||!w.card)return false;
+    if(!w||!d||!d.querySelector('#tasks')) return false;
 
-    w.refreshTaskResultsOnly=function(){
-      try{
-        const da=w.depAnalysis();
-        const all=w.data.tasks||[];
-        const filtered=w.filterTasks(all,da);
-        const infoEl=d.querySelector('#tasks .filterInfo .small');
-        const listEl=d.querySelector('#tasks .list');
-        if(infoEl) infoEl.textContent='Mostrate '+filtered.length+' di '+all.length+' attività';
-        if(listEl){
-          listEl.innerHTML=filtered.length
-            ? filtered.map(t=>w.card(t,da)).join('')
-            : '<div class="task"><div class="title">Nessuna attività trovata</div><div class="small">Prova a togliere qualche filtro.</div></div>';
-        }
-      }catch(e){console.warn('refreshTaskResultsOnly error',e)}
-    };
+    w.eval(`
+      (function(){
+        if(window.__casaRushSearchFixed) return true;
+        window.__casaRushSearchFixed = true;
 
-    const originalSetTaskFilter=w.setTaskFilter;
-    w.setTaskFilter=function(k,v){
-      w.taskFilters[k]=v;
-      if(k==='q'){
-        w.refreshTaskResultsOnly();
-      }else{
-        originalSetTaskFilter ? originalSetTaskFilter(k,v) : w.renderTasks();
-      }
-    };
+        window.updateFilteredListOnly = function(){
+          const da = depAnalysis();
+          const all = data.tasks || [];
+          const filtered = filterTasks(all, da);
+          const info = document.querySelector('#tasks .filterInfo .small');
+          const list = document.querySelector('#tasks .list');
+          if(info) info.textContent = 'Mostrate ' + filtered.length + ' di ' + all.length + ' attività';
+          if(list){
+            list.innerHTML = filtered.length
+              ? filtered.map(t => card(t, da)).join('')
+              : '<div class="task"><div class="title">Nessuna attività trovata</div><div class="small">Prova a togliere qualche filtro.</div></div>';
+          }
+        };
 
-    // versione di sicurezza: se il campo ricerca esiste già, preserva focus e caret durante la digitazione
-    const search=d.querySelector('#tasks input[placeholder^="🔎"]');
-    if(search){
-      search.addEventListener('input',function(ev){
-        w.taskFilters.q=ev.target.value;
-        w.refreshTaskResultsOnly();
-      },true);
-    }
+        const oldSetTaskFilter = setTaskFilter;
+        window.setTaskFilter = setTaskFilter = function(k,v){
+          taskFilters[k] = v;
+          if(k === 'q') updateFilteredListOnly();
+          else oldSetTaskFilter(k,v);
+        };
+        true;
+      })();
+    `);
     return true;
-  }catch(e){console.warn('Patch Casa Rush non applicata',e);return false;}
+  }catch(e){
+    console.warn('Patch Casa Rush non applicata', e);
+    return false;
+  }
 }
 
 fetch('versions.json?ts='+Date.now())
@@ -79,7 +76,7 @@ frame.addEventListener('load',()=>{
   let tries=0;
   const timer=setInterval(()=>{
     tries++;
-    if(patchActivitySearch()||tries>20) clearInterval(timer);
+    if(patchActivitySearch()||tries>30) clearInterval(timer);
   },250);
 });
 </script>
