@@ -86,6 +86,7 @@ function exportTimelinePdf(){
 `;
 
     html = html.replace(/v1\.7\.3/g, 'v1.7.5');
+    html = html.replace(/v1-7-3/g, 'v1-7-5');
     html = html.replace(oldFn, newFn);
 
     document.open();
