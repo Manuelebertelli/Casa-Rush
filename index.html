@@ -6,25 +6,37 @@
 <title>Casa Rush</title>
 </head>
 <body>
+
 <script>
 async function loadLatestVersion(){
   try{
-    const res = await fetch('versions.json?ts=' + Date.now());
+    const res = await fetch('./versions.json?ts=' + Date.now());
     const cfg = await res.json();
-    const file = cfg.active;
-    const html = await fetch(file + '?ts=' + Date.now()).then(r=>r.text());
+
+    if(!cfg.active){
+      throw new Error("versions.json senza campo active");
+    }
+
+    const html = await fetch('./' + cfg.active + '?ts=' + Date.now())
+      .then(r=>{
+        if(!r.ok) throw new Error("File versione non trovato: " + cfg.active);
+        return r.text();
+      });
+
     document.open();
     document.write(html);
     document.close();
+
   }catch(e){
     document.body.innerHTML = `
       <h1 style="font-family:sans-serif">⚠️ Errore caricamento</h1>
-      <p>Controlla versions.json o i file versione.</p>
-      <pre>${e}</pre>
+      <p>${e.message}</p>
     `;
   }
 }
+
 loadLatestVersion();
 </script>
+
 </body>
 </html>
