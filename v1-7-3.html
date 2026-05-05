@@ -11,34 +11,78 @@ fetch('v1-7-2.html?ts='+Date.now())
 .then(r=>r.text())
 .then(html=>{
   const patch = `
-  <style>
-  @media print {
-    @page { size: A4 landscape; margin: 10mm; }
-    body { background:#fff !important; color:#111 !important; }
-    header, nav, button, .actions { display:none !important; }
-    .view { display:none !important; }
-    #timeline { display:block !important; }
-    .card { box-shadow:none !important; border:none !important; }
-  }
-  </style>
   <script>
-  function exportTimelinePdf(){
-    document.querySelectorAll('.view').forEach(v=>v.classList.add('hide'));
-    document.getElementById('timeline').classList.remove('hide');
-    setTimeout(()=>window.print(),300);
+  function csvCell(value){
+    const text = String(value ?? '').replace(/\r?\n|\r/g, ' ').trim();
+    return '"' + text.replace(/"/g, '""') + '"';
   }
-  function addBtn(){
+
+  function exportTimelineCsv(){
+    const statusMap = {
+      fatto: 'Fatto',
+      confermato: 'Confermato',
+      da_confermare: 'Da confermare',
+      rischio: 'A rischio',
+      bloccante: 'Bloccante',
+      bloccato: 'Bloccato',
+      post: 'Post-rogito OK'
+    };
+
+    const headers = [
+      'Titolo',
+      'Canale',
+      'Contatto',
+      'Data inizio',
+      'Data fine',
+      'Stato',
+      'Critica',
+      'Solleciti',
+      'Blocca',
+      'Note'
+    ];
+
+    const rows = [...(data.tasks || [])]
+      .sort((a,b) => String(a.start || '').localeCompare(String(b.start || '')) || String(a.lane || '').localeCompare(String(b.lane || '')))
+      .map(t => [
+        t.title || '',
+        t.lane || '',
+        (c(t.contact) || {}).name || '',
+        t.start || '',
+        t.end || '',
+        statusMap[t.status] || t.status || '',
+        t.critical ? 'Sì' : 'No',
+        t.sol || 0,
+        (t.blocks || []).join(', '),
+        t.notes || ''
+      ]);
+
+    const csv = '\uFEFF' + [headers, ...rows].map(row => row.map(csvCell).join(';')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const today = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = 'casa-rush-timeline-' + today + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function addExportBtn(){
     const h2=document.querySelector('#timeline .card h2');
-    if(h2 && !document.getElementById('pdfBtn')){
+    if(h2 && !document.getElementById('csvBtn')){
       const btn=document.createElement('button');
-      btn.id='pdfBtn';
-      btn.innerText='📄 Esporta PDF';
-      btn.onclick=exportTimelinePdf;
+      btn.id='csvBtn';
+      btn.className='btn gold';
+      btn.innerText='📊 Esporta Excel';
+      btn.onclick=exportTimelineCsv;
       btn.style.marginLeft='10px';
       h2.appendChild(btn);
     }
   }
-  setInterval(addBtn,1000);
+
+  setInterval(addExportBtn,1000);
   <\/script>
   `;
   html = html.replace('</body>', patch+'</body>');
