@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Casa Rush v1.7.3</title>
+</head>
+<body>
+<script>
+fetch('v1-7-2.html?ts='+Date.now())
+.then(r=>r.text())
+.then(html=>{
+  const patch = `
+  <style>
+  @media print {
+    @page { size: A4 landscape; margin: 10mm; }
+    body { background:#fff !important; color:#111 !important; }
+    header, nav, button, .actions { display:none !important; }
+    .view { display:none !important; }
+    #timeline { display:block !important; }
+    .card { box-shadow:none !important; border:none !important; }
+  }
+  </style>
+  <script>
+  function exportTimelinePdf(){
+    document.querySelectorAll('.view').forEach(v=>v.classList.add('hide'));
+    document.getElementById('timeline').classList.remove('hide');
+    setTimeout(()=>window.print(),300);
+  }
+  function addBtn(){
+    const h2=document.querySelector('#timeline .card h2');
+    if(h2 && !document.getElementById('pdfBtn')){
+      const btn=document.createElement('button');
+      btn.id='pdfBtn';
+      btn.innerText='📄 Esporta PDF';
+      btn.onclick=exportTimelinePdf;
+      btn.style.marginLeft='10px';
+      h2.appendChild(btn);
+    }
+  }
+  setInterval(addBtn,1000);
+  <\/script>
+  `;
+  html = html.replace('</body>', patch+'</body>');
+  document.open(); document.write(html); document.close();
+});
+</script>
+</body>
+</html>
