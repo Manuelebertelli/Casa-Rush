@@ -11,15 +11,11 @@ async function loadLatestVersion(){
   try{
     const res = await fetch('versions.json?ts=' + Date.now());
     const cfg = await res.json();
-
     const file = cfg.active;
-
     const html = await fetch(file + '?ts=' + Date.now()).then(r=>r.text());
-
     document.open();
     document.write(html);
     document.close();
-
   }catch(e){
     document.body.innerHTML = `
       <h1 style="font-family:sans-serif">⚠️ Errore caricamento</h1>
@@ -28,7 +24,6 @@ async function loadLatestVersion(){
     `;
   }
 }
-
 loadLatestVersion();
 </script>
 </body>
