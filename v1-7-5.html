@@ -80,6 +80,95 @@ function buildPdfGantt(){
   return el;
 }
 async function exportTimelinePdf(){
+
+  const tasks = data.tasks || [];
+  const contacts = data.contacts || [];
+
+  function contactName(id){
+    return (contacts.find(c=>c.id===id)||{}).name || '-';
+  }
+
+  const rows = tasks
+    .sort((a,b)=>a.start.localeCompare(b.start))
+    .map(t=>`
+      <tr>
+        <td>${t.title}</td>
+        <td>${t.lane || '-'}</td>
+        <td>${contactName(t.contact)}</td>
+        <td>${t.start || '-'}</td>
+        <td>${t.end || '-'}</td>
+        <td>${t.status || '-'}</td>
+        <td>${t.critical ? 'SI' : 'NO'}</td>
+        <td>${(t.blocks||[]).join(', ')}</td>
+        <td>${t.notes || ''}</td>
+      </tr>
+    `).join('');
+
+  const html = `
+    <html>
+    <head>
+      <title>Casa Rush PDF</title>
+      <style>
+        body{
+          font-family:Arial;
+          padding:20px;
+          background:white;
+          color:black;
+        }
+        h1{margin-bottom:5px}
+        table{
+          width:100%;
+          border-collapse:collapse;
+          font-size:12px;
+        }
+        th, td{
+          border:1px solid #ccc;
+          padding:6px;
+          text-align:left;
+        }
+        th{
+          background:#f0f0f0;
+        }
+      </style>
+    </head>
+    <body>
+
+      <h1>Casa Rush – Timeline lavori</h1>
+      <p>Esportato il ${new Date().toLocaleDateString()}</p>
+      <p>Obiettivo rogito: 30/05/2026</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Attività</th>
+            <th>Canale</th>
+            <th>Contatto</th>
+            <th>Inizio</th>
+            <th>Fine</th>
+            <th>Stato</th>
+            <th>Critica</th>
+            <th>Blocca</th>
+            <th>Note</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+
+    </body>
+    </html>
+  `;
+
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+
+  win.onload = () => {
+    win.print();
+  };
+}
+{
   if(typeof show==='function')show('timeline');
   await new Promise(r=>setTimeout(r,350));
   buildPdfGantt();
