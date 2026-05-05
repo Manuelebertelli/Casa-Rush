@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Casa Rush Loader</title>
+<style>
+body{margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#0f172a;color:#fff;font-family:sans-serif}
+.box{text-align:center}
+</style>
+</head>
+<body>
+<div class="box">
+<h2>🚀 Caricamento Casa Rush...</h2>
+<p id="info">Controllo versione...</p>
+</div>
+<script>
+fetch('versions.json')
+.then(r=>r.json())
+.then(v=>{
+ document.getElementById('info').textContent = 'Carico '+v.label;
+ setTimeout(()=>{window.location.href = v.active},500);
+})
+.catch(()=>{
+ document.getElementById('info').textContent = 'Errore, carico fallback...';
+ setTimeout(()=>{window.location.href = 'v1-7.html'},800);
+});
+</script>
+</body>
+</html>
